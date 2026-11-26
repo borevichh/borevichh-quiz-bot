@@ -1,7 +1,8 @@
+import html
 import os
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -10,29 +11,66 @@ from aiogram.types import (
     Update,
 )
 
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://borevichh.github.io/borevichh-quiz/").strip()
+BASE_URL = os.getenv("WEBAPP_URL", "https://borevichh.github.io/borevichh-quiz/").strip().rstrip("/") + "/"
 
 dp = Dispatcher()
 app = FastAPI()
 
 
-@dp.message(CommandStart())
-async def cmd_start(message: Message) -> None:
-    kb = InlineKeyboardMarkup(
+def build_main_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🎮 Открыть borevichh quiz",
-                    web_app=WebAppInfo(url=WEBAPP_URL),
+                    text="🎮 Играть • borevichh quiz #7",
+                    web_app=WebAppInfo(url=BASE_URL),
                 )
-            ]
+            ],
+            [
+                InlineKeyboardButton(
+                    text="♟️ Шахматы vs ИИ",
+                    web_app=WebAppInfo(url=f"{BASE_URL}?mode=chess"),
+                ),
+                InlineKeyboardButton(
+                    text="⚡ Блиц 3:00",
+                    web_app=WebAppInfo(url=f"{BASE_URL}?mode=blitz"),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📲 Поделиться игрой с друзьями",
+                    switch_inline_query="Сыграем в borevichh quiz #7? 13 игр, Блиц 3:00 и Шахматы vs ИИ ⚽♟️",
+                )
+            ],
         ]
     )
+
+
+@dp.message(CommandStart())
+async def cmd_start(message: Message) -> None:
+    first_name = html.escape(message.from_user.first_name) if message.from_user else "Игрок"
+    text = (
+        f"👋 <b>Привет, {first_name}!</b>\n"
+        f"Добро пожаловать в <b>borevichh quiz — 7 Edition</b> ⚽\n\n"
+        f"Внутри тебя ждут <b>13 интеллектуальных режимов (20+)</b>:\n"
+        f"• ♟️ <b>Шахматы vs ИИ</b> — 3 уровня сложности + разбор ходов\n"
+        f"• ⚡ <b>Блиц 3:00</b> — спринт на скорость и реакцию\n"
+        f"• 🔐 <b>Пароль, Судоку, Связи, Криптограмма</b> и ещё 7 игр\n"
+        f"• 🏆 Уровни XP, серия побед, подсказки и достижения\n\n"
+        f"<i>Выбирай режим кнопкой ниже или жми синюю кнопку «Играть» в меню:</i>"
+    )
     await message.answer(
-        "⚽ <b>borevichh quiz — 7 Edition</b>\n\n"
-        "13 интеллектуальных игр (20+), бесконечный режим, Блиц 3:00 и Шахматы vs ИИ.\n"
-        "Нажмите кнопку ниже, чтобы запустить игру прямо в Telegram:",
-        reply_markup=kb,
+        text,
+        reply_markup=build_main_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@dp.message(Command("play"))
+async def cmd_play(message: Message) -> None:
+    await message.answer(
+        "🚀 <b>Запускай матч!</b> Нажми кнопку ниже:",
+        reply_markup=build_main_keyboard(),
         parse_mode="HTML",
     )
 
@@ -52,9 +90,4 @@ async def telegram_webhook(request: Request):
 
 @app.get("/")
 async def healthcheck():
-    token = os.getenv("BOT_TOKEN", "").strip()
-    return {
-        "status": "running",
-        "has_token": bool(token),
-        "token_valid_format": ":" in token,
-    }
+    return {"status": "running"}
