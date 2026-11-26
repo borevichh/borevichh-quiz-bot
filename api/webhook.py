@@ -10,10 +10,8 @@ from aiogram.types import (
     Update,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://borevichh.github.io/borevichh-quiz/")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://borevichh.github.io/borevichh-quiz/").strip()
 
-bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 app = FastAPI()
 
@@ -41,12 +39,22 @@ async def cmd_start(message: Message) -> None:
 
 @app.post("/api/webhook")
 async def telegram_webhook(request: Request):
-    data = await request.json()
-    update = Update.model_validate(data, context={"bot": bot})
-    await dp.feed_update(bot, update)
+    token = os.getenv("BOT_TOKEN", "").strip()
+    bot = Bot(token=token)
+    try:
+        data = await request.json()
+        update = Update.model_validate(data, context={"bot": bot})
+        await dp.feed_update(bot, update)
+    finally:
+        await bot.session.close()
     return {"ok": True}
 
 
 @app.get("/")
 async def healthcheck():
-    return {"status": "running"}
+    token = os.getenv("BOT_TOKEN", "").strip()
+    return {
+        "status": "running",
+        "has_token": bool(token),
+        "token_valid_format": ":" in token,
+    }
